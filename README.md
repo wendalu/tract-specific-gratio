@@ -30,7 +30,7 @@ If you want to modify `pipeline.sh` or the Python scripts without rebuilding the
 
 1. Clone this repository:
    ```bash
-   git clone [https://github.com/](https://github.com/)<your-username>/tract-specific-gratio.git
+   git clone [https://github.com/](https://github.com/)wendalu/tract-specific-gratio.git
    cd tract-specific-gratio
    ```
 2. Edit `pipeline.sh` or any `*.py` file.

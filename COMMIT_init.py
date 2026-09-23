@@ -23,7 +23,7 @@ bvals        	= sys.argv[2]
 bvecs       	= sys.argv[3]
 dwi_b0 	    	= sys.argv[4]
 wm_mask     	= sys.argv[5]
-wm_fod         	= sys.argv[6]
+peaks         	= sys.argv[6]
 tractogram      = sys.argv[7]
 
 # Dirs
@@ -39,7 +39,7 @@ scheme 		    = tmp_dir + "/AMICO.scheme"
 commit.core.setup()                                                                     # precomputes the rotation matrices used internally by COMMIT
 trk2dictionary.run(
         filename_tractogram     = tractogram,
-        filename_peaks          = wm_fod,
+        filename_peaks          = peaks,
         filename_mask           = wm_mask,
         TCK_ref_image           = dwi_b0,
         path_out                = dict_dir,

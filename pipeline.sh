@@ -8,12 +8,12 @@ Usage: $(basename "$0") [OPTIONS]
 
 Required Arguments:
   --dwi, -d      PATH    Preprocessed diffusion image at native resolution (.nii / .nii.gz / .mif)
+  --mask, -m     PATH    Binary brain mask in DWI space at native resolution (.nii / .nii.gz / .mif)
   --tracks, -t   PATH    Pre-computed tractogram / streamlines (.tck)
-  --fod, -f      PATH    White matter fiber orientation distribution (.nii / .nii.gz / .mif)
   --mvf          PATH    Myelin volume fraction map (.nii / .nii.gz)
                          * NOTE: The pipeline resamples/upscales the DWI to match 
                            the spatial resolution and grid of this MVF image.
-  --mask, -m     PATH    White matter mask (.nii / .nii.gz)
+  --wm, -w       PATH    White matter mask in MVF space (.nii / .nii.gz)
 
 Conditional Arguments:
   --bvec         PATH    b-vectors text file (Required if DWI is NIfTI)
@@ -31,10 +31,10 @@ Notes:
 
 Examples:
   # Using NIfTI inputs (bvec/bval required)
-  ./tract-specific-gratio.sif -d dwi.nii.gz --bvec bvecs --bval bvals -t tracks.tck -f wmfod.nii.gz --mvf mvf.nii.gz -m mask.nii.gz -o output/
+  ./tract-specific-gratio.sif -d dwi.nii.gz --bvec bvecs --bval bvals -t tracks.tck -m mask.nii.gz --mvf mvf.nii.gz -w wm_mask.nii.gz -o output/
 
   # Using .mif input (embedded grad table extracted automatically)
-  ./tract-specific-gratio.sif -d dwi.mif -t tracks.tck -f wmfod.mif --mvf mvf.nii.gz -m mask.nii.gz -o output/
+  ./tract-specific-gratio.sif -d dwi.mif -t tracks.tck -m mask.nii.gz --mvf mvf.nii.gz -w wm_mask.nii.gz -o output/
 EOF
     exit 1
 }
@@ -44,7 +44,7 @@ DWI=""
 BVEC=""
 BVAL=""
 TRACKS=""
-FOD=""
+MASK=""
 MVF=""
 WM_MASK=""
 OUTDIR="./results"
@@ -53,16 +53,16 @@ CLEANUP=true
 # Parse CLI arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -d|--dwi)    DWI="$2"; shift 2 ;;
-        --bvec)      BVEC="$2"; shift 2 ;;
-        --bval)      BVAL="$2"; shift 2 ;;
-        -t|--tracks) TRACKS="$2"; shift 2 ;;
-        -f|--fod)    FOD="$2"; shift 2 ;;
-        --mvf)       MVF="$2"; shift 2 ;;
-        -m|--mask)   WM_MASK="$2"; shift 2 ;;
-        -o|--outdir) OUTDIR="$2"; shift 2 ;;
-        --no-cleanup) CLEANUP=false; shift ;;
-        -h|--help)   usage ;;
+        -d|--dwi)       DWI="$2"; shift 2 ;;
+        --bvec)         BVEC="$2"; shift 2 ;;
+        --bval)         BVAL="$2"; shift 2 ;;
+        -t|--tracks)    TRACKS="$2"; shift 2 ;;
+        -m|--mask)      MASK="$2"; shift 2 ;;
+        --mvf)          MVF="$2"; shift 2 ;;
+        -w|--wm)        WM_MASK="$2"; shift 2 ;;
+        -o|--outdir)    OUTDIR="$2"; shift 2 ;;
+        --no-cleanup)   CLEANUP=false; shift ;;
+        -h|--help)      usage ;;
         *) echo "Error: Unknown argument '$1'" >&2; usage ;;
     esac
 done
@@ -71,9 +71,9 @@ done
 missing_args=()
 [[ -z "$DWI" ]]     && missing_args+=("--dwi")
 [[ -z "$TRACKS" ]]  && missing_args+=("--tracks")
-[[ -z "$FOD" ]]     && missing_args+=("--fod")
+[[ -z "$MASK" ]]    && missing_args+=("--mask")
 [[ -z "$MVF" ]]     && missing_args+=("--mvf")
-[[ -z "$WM_MASK" ]] && missing_args+=("--mask")
+[[ -z "$WM_MASK" ]] && missing_args+=("--wm")
 
 # Check if DWI is NIfTI; if so, require bvec and bval
 if [[ "$DWI" =~ \.nii(\.gz)?$ ]]; then
@@ -91,7 +91,7 @@ if [[ ${#missing_args[@]} -gt 0 ]]; then
 fi
 
 # Verify input files that were supplied actually exist
-for file in "$DWI" "$TRACKS" "$FOD" "$MVF" "$WM_MASK" "$BVEC" "$BVAL"; do
+for file in "$DWI" "$TRACKS" "$MASK" "$MVF" "$WM_MASK" "$BVEC" "$BVAL"; do
     if [[ -n "$file" && ! -f "$file" ]]; then
         echo "Error: Input file does not exist: $file" >&2
         exit 1
@@ -122,7 +122,7 @@ echo "DWI:        $DWI"
 echo "bvec:       ${BVEC:-[Will extract from MIF]}"
 echo "bval:       ${BVAL:-[Will extract from MIF]}"
 echo "Tracks:     $TRACKS"
-echo "FOD:        $FOD"
+echo "Mask:       $MASK"
 echo "MVF:        $MVF"
 echo "WM Mask:    $WM_MASK"
 echo "Output:     $OUTDIR"
@@ -170,11 +170,65 @@ fi
 # ==============================================================================
 # Processing
 # ==============================================================================
-echo "[*] Extracting mean b0..."
-B0="$TMPDIR/DWI_mean_b0.nii.gz"
+echo "[*] Upscaling and extracting mean b0..."
+DWI_UP_MIF="$TMPDIR/DWI_up.mif"
+DWI_UP_NII="$TMPDIR/DWI_up.nii.gz"
+MASK_UP="$TMPDIR/DWI_up_mask.nii.gz"
+B0_UP="$TMPDIR/DWI_mean_up_b0.nii.gz"
 
-run_cmd dwiextract "$DWI_MIF" "$TMPDIR/DWI_b0.mif" -bzero -nthreads 1 -force
-run_cmd mrmath "$TMPDIR/DWI_b0.mif" mean "$B0" -axis 3 -nthreads 1 -force
+run_cmd mrgrid "$DWI_MIF" regrid -template "$MVF" "$DWI_UP_MIF" -force
+run_cmd mrconvert "$DWI_UP_MIF" "$DWI_UP_NII" -nthreads 1 -force
+run_cmd dwiextract "$DWI_UP_MIF" "$TMPDIR/DWI_up_b0.mif" -bzero -nthreads 1 -force
+run_cmd mrmath "$TMPDIR/DWI_up_b0.mif" mean "$B0" -axis 3 -nthreads 1 -force
+run_cmd mrgrid "$MASK" regrid -template "$MVF" -interpolation nearest "$MASK_UP" -force
+
+echo "[*] Checking diffusion shells..."
+
+# Extract all unique b-values detected by MRtrix
+raw_shells=($(mrinfo "$DWI_MIF" -shell_bvalues))
+
+# Filter out b0 shells (b <= 50 s/mm^2 to account for scanner rounding/noise)
+nonzero_shells=()
+for b in "${raw_shells[@]}"; do
+    b_int="${b%.*}"
+    if (( b_int > 50 )); then
+        nonzero_shells+=("$b_int")
+    fi
+done
+
+num_nonzero=${#nonzero_shells[@]}
+
+if (( num_nonzero < 2 )); then
+    echo "Error: Multi-shell diffusion data required, but found only $num_nonzero non-b0 shell(s): [${nonzero_shells[*]:-None}]." >&2
+    echo "This pipeline requires b=0 plus at least 2 non-zero shells (e.g., b=1000 and b=2000 s/mm²) for MSMT-CSD and COMMIT microstructural fitting." >&2
+    exit 1
+fi
+
+echo "[*] Multi-shell data verified: detected ${num_nonzero} non-b0 shells (${nonzero_shells[*]} s/mm²)."
+
+# Response function estimation
+echo "[*] Estimating response functions..."
+WM_RESPONSE="$TMPDIR/response_wm.txt"
+GM_RESPONSE="$TMPDIR/response_gm.txt"
+CSF_RESPONSE="$TMPDIR/response_csf.txt"
+
+run_cmd dwi2response dhollander "$DWI_MIF" \
+    "$WM_RESPONSE" "$GM_RESPONSE" "$CSF_RESPONSE" \
+    -mask "$MASK" \
+    -force
+
+# CSD + peaks
+echo "[*] Generating peaks..."
+PEAKS="$TMPDIR/peaks.nii.gz"
+
+run_cmd dwi2fod msmt_csd "$DWI_MIF" \
+    "$WM_RESPONSE" "$TMPDIR/wm.mif" \
+    "$GM_RESPONSE" "$TMPDIR/gm.mif" \
+    "$CSF_RESPONSE" "$TMPDIR/csf.mif" \
+    -mask "$MASK" \
+    -force
+
+run_cmd sh2peaks "$TMPDIR/wm.mif" "$PEAKS" -num 3 -force
 
 # ==============================================================================
 # Step 1
@@ -197,7 +251,7 @@ while [[ ! -f "$weights_commit" && $counter -lt $max_attempts ]]; do
 
     # Call COMMIT_init.py (found in /app on PATH)
     run_cmd python /app/COMMIT_init.py \
-        "$DWI" "$BVEC" "$BVAL" "$B0" "$WM_MASK" "$FOD" "$TRACKS" "$TMPDIR"
+        "$DWI_UP_NII" "$BVEC" "$BVAL" "$B0_UP" "$WM_MASK" "$PEAKS" "$TRACKS" "$TMPDIR"
 
     if [[ -f "$weights_commit" ]]; then
         run_cmd tckedit \

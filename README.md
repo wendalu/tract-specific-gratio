@@ -8,7 +8,7 @@ Automated pipeline for computing tract-specific g-ratio using MRtrix3 and COMMIT
 
 | Input Flag | Description | Required | Notes |
 | :--- | :--- | :--- | :--- |
-| `-d`, `--dwi` | Diffusion image (`.nii`, `.nii.gz`, `.mif`) | Yes | At least 2 shells. Will be resampled to match `--mvf` |
+| `-d`, `--dwi` | Diffusion image (`.nii`, `.nii.gz`, `.mif`) | Yes | Need at least 2 shells.<br>Will be resampled to match `--mvf` |
 | `--bvec` | FSL b-vectors text file | Conditional | Required only if `--dwi` is NIfTI |
 | `--bval` | FSL b-values text file | Conditional | Required only if `--dwi` is NIfTI |
 | `-m`, `--mask` | Brain mask (`.nii.gz`, `.mif`) | Yes | In DWI space at native resolution |

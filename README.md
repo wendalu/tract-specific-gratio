@@ -30,7 +30,7 @@ You do not need to rebuild the Singularity image to tweak algorithm parameters, 
 
 ### 1. Clone the repository
 ```bash
-git clone [https://github.com/wendalu/tract-specific-gratio.git](https://github.com/wendalu/tract-specific-gratio.git)
+git clone https://github.com/wendalu/tract-specific-gratio.git
 cd tract-specific-gratio
 ```
 
@@ -38,7 +38,7 @@ cd tract-specific-gratio
 Edit `pipeline.sh` or any of the `.py` files locally.
 
 ### 3. Run using your local code
-Use `singularity exec` with the `-B` (bind) flag to map your current working directory over `/app` inside the container:
+Use `singularity exec` with the `-B` flag to map your current working directory over `/app` inside the container:
 
 ```bash
 singularity exec \

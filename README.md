@@ -77,8 +77,8 @@ singularity exec \
         --bvec /path/to/bvecs \
         --bval /path/to/bvals \
         -t /path/to/tracks.tck \
-        -f /path/to/wmfod.mif \
+        -m /path/to/mask.nii.gz \
         --mvf /path/to/mvf.nii.gz \
-        -m /path/to/wm_mask.nii.gz \
+        -w /path/to/wm_mask.nii.gz \
         -o /path/to/output_dir/
 ```

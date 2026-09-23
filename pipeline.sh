@@ -7,10 +7,12 @@ usage() {
 Usage: $(basename "$0") [OPTIONS]
 
 Required Arguments:
-  --dwi, -d      PATH    Diffusion image (.nii / .nii.gz / .mif)
+  --dwi, -d      PATH    Preprocessed diffusion image at native resolution (.nii / .nii.gz / .mif)
   --tracks, -t   PATH    Pre-computed tractogram / streamlines (.tck)
   --fod, -f      PATH    White matter fiber orientation distribution (.nii / .nii.gz / .mif)
   --mvf          PATH    Myelin volume fraction map (.nii / .nii.gz)
+                         * NOTE: The pipeline resamples/upscales the DWI to match 
+                           the spatial resolution and grid of this MVF image.
   --mask, -m     PATH    White matter mask (.nii / .nii.gz)
 
 Conditional Arguments:
@@ -21,6 +23,11 @@ Optional Arguments:
   --outdir, -o   PATH    Output directory (default: ./results)
   --no-cleanup           Keep temporary intermediate files for debugging
   --help, -h             Show this help message and exit
+
+Notes:
+  * Resolution Matching: The DWI is automatically upscaled/resampled to match 
+    the voxel grid and resolution of the input --mvf image. If you plan to upsample 
+    your MVF (e.g., to match an anatomical T1w space), do so BEFORE passing it here.
 
 Examples:
   # Using NIfTI inputs (bvec/bval required)

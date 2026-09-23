@@ -7,7 +7,7 @@ usage() {
 Usage: $(basename "$0") [OPTIONS]
 
 Required Arguments:
-  --dwi, -d      PATH    Preprocessed diffusion image at native resolution (.nii / .nii.gz / .mif)
+  --dwi, -d      PATH    Preprocessed diffusion image at native resolution (at least 2 shells) (.nii / .nii.gz / .mif)
   --mask, -m     PATH    Binary brain mask in DWI space at native resolution (.nii / .nii.gz / .mif)
   --tracks, -t   PATH    Pre-computed tractogram / streamlines (.tck)
   --mvf          PATH    Myelin volume fraction map (.nii / .nii.gz)

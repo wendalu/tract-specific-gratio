@@ -8,17 +8,17 @@ Automated pipeline for computing tract-specific g-ratio using MRtrix3 and COMMIT
 
 | Input Flag | Description | Required | Notes |
 | :--- | :--- | :--- | :--- |
-| `-d`, `--dwi` | Diffusion image (`.nii`, `.nii.gz`, `.mif`) | Yes | Resampled internally to match `--mvf` |
+| `-d`, `--dwi` | Diffusion image (`.nii`, `.nii.gz`, `.mif`) | Yes | At least 2 shells. Will be resampled to match `--mvf` |
 | `--bvec` | FSL b-vectors text file | Conditional | Required only if `--dwi` is NIfTI |
 | `--bval` | FSL b-values text file | Conditional | Required only if `--dwi` is NIfTI |
+| `-m`, `--mask` | Brain mask (`.nii.gz`, `.mif`) | Yes | In DWI space at native resolution |
 | `-t`, `--tracks` | Tractogram (`.tck`) | Yes | Pre-computed streamlines |
-| `-f`, `--fod` | White matter FOD (`.nii.gz`, `.mif`) | Yes | Fiber orientation distribution map |
 | `--mvf` | Myelin Volume Fraction map (`.nii.gz`) | Yes | **Defines target output resolution** |
-| `-m`, `--mask` | White matter mask (`.nii.gz`) | Yes | Binary mask in DWI/MVF space |
+| `-w`, `--wm` | White matter mask (`.nii.gz`) | Yes | Binary mask in MVF space |
 | `-o`, `--outdir` | Output directory | No | Default: `./results` |
 | `--no-cleanup` | Keep temporary scratch files | No | Preserves `$TMPDIR` for troubleshooting |
 
-### !!! Important Note on Resolution and Voxel Grids
+### !!! Important Note on Resolution and Voxel Grids !!!
 
 1. **Native-Resolution Preprocessed DWI:**
    * Provide the fully corrected diffusion data.
@@ -26,7 +26,7 @@ Automated pipeline for computing tract-specific g-ratio using MRtrix3 and COMMIT
 
 2. **Target Resolution Defined by MVF:**
    * The pipeline handles the DWI upsampling internally to align voxel-for-voxel with the `--mvf` image grid.
-   * If you wish to compute tract-specific g-ratio at an anatomical resolution (e.g., 1.0 mm isotropic or T1w space), **register/resample your MVF to that anatomical target before running this pipeline**. The native DWI will be scaled to match it automatically.
+   * If you wish to compute tract-specific g-ratio at an anatomical resolution (e.g., 1.0 mm isotropic or T1w space), **register/resample your MVF to that target before running this pipeline**. The native DWI will be scaled to match it automatically.
 
 ---
 
@@ -43,10 +43,10 @@ Download the latest `tract-specific-gratio.sif` from [Releases](../../releases).
     --dwi dwi.nii.gz \
     --bvec bvecs \
     --bval bvals \
+    --mask mask.nii.gz \
     --tracks tracks.tck \
-    --fod wmfod.mif \
     --mvf mvf.nii.gz \
-    --mask wm_mask.nii.gz \
+    --wm wm_mask.nii.gz \
     --outdir results/
 ```
 

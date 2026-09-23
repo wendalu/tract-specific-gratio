@@ -17,27 +17,20 @@ import amico
 #------------- SETUP ---------------#
 #-----------------------------------#
 
-ID          = sys.argv[1]
-in_dir   	= sys.argv[2]
-tmp_dir     = sys.argv[3]
-tractogram  = sys.argv[4]
-para_diff   = float(sys.argv[5])
-perp_diff   = float(sys.argv[6])
-iso_diff    = float(sys.argv[7])
-
-print(".\n *** Initializing COMMIT for: ", ID)
+# Files
+dwi_corr       	= sys.argv[1]
+bvals        	= sys.argv[2]
+bvecs       	= sys.argv[3]
+dwi_b0 	    	= sys.argv[4]
+wm_mask     	= sys.argv[5]
+wm_fod         	= sys.argv[6]
+tractogram      = sys.argv[7]
 
 # Dirs
+in_dir   	    = sys.argv[8]
 commit_dir      = in_dir + "/COMMIT_init"
 dict_dir        = commit_dir + "/dict"
 
-# Files
-dwi_b0 	    	= in_dir + "/" + ID + "_space-dwi_desc-b0.nii.gz"
-wm_fod         	= tmp_dir + "/" + ID  + "_wm_fod_norm.nii.gz"
-wm_mask        	= tmp_dir + "/" + ID  + "_dwi_wm_mask.nii.gz"
-dwi_corr       	= tmp_dir + "/" + ID  + "_dwi_upscaled.nii.gz"
-bvals        	= tmp_dir + "/" + ID  + "_bvals.txt"
-bvecs       	= tmp_dir + "/" + ID  + "_bvecs.txt"
 scheme 		    = tmp_dir + "/AMICO.scheme"
 
 #------------------------------------
@@ -64,17 +57,9 @@ mit.load_data(
 
 # set forward model
 mit.set_model( 'StickZeppelinBall' )                                                    # model described in (Panagiotaki et al., NeuroImage, 2012)
-
-d_par   = para_diff                                                                     # Parallel diffusivity [mm^2/s]
-d_perps = [ perp_diff ]                                                                 # Perpendicular diffusivity(s) [mm^2/s]
-d_isos  = [ 1.7E-3, iso_diff ]                                                          # Isotropic diffusivity(s) [mm^2/s]
-
-
-print(".\n *** d_par: ", d_par)
-print(".\n *** d_perps: ", d_perps)
-print(".\n *** d_isos: ", d_isos)
-
-
+d_par   = 1.7E-3                                                                        # Parallel diffusivity [mm^2/s]
+d_perps = [ 0.51E-3 ]                                                                   # Perpendicular diffusivity(s) [mm^2/s]
+d_isos  = [ 1.7E-3, 3.0E-3 ]                                                            # Isotropic diffusivity(s) [mm^2/s]
 mit.model.set( d_par, d_perps, d_isos )
 mit.generate_kernels( regenerate=True )
 mit.load_kernels()
@@ -83,7 +68,7 @@ mit.load_kernels()
 mit.load_dictionary( dict_dir )
 
 # Build linear operator A
-mit.set_threads(30)                                                                       # use max possible; mit.set_threads( n ) to set manually
+mit.set_threads()                                                                       # use max possible; mit.set_threads( n ) to set manually
 mit.build_operator()
 # perform optimization
 mit.fit(tol_fun=1e-3, max_iter=1000)

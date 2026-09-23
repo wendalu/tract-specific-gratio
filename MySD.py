@@ -16,21 +16,19 @@ import nibabel as nib
 #-----------------------------------#
 #------------- SETUP ---------------#
 #-----------------------------------#
-commit.core.setup()       # precomputes the rotation matrices used internally by COMMIT
-# Inputs
-ID          = sys.argv[1]
-in_dir   	= sys.argv[2]
-tmp_dir     = sys.argv[3]
-dict_dir    = sys.argv[4]
-tractogram  = sys.argv[5]
-qmap        = sys.argv[6]
-
-print(".\n *** Initializing COMMIT for: ", ID)
-print(".\n *** Tractogram: ", tractogram)
-
+commit.setup()
 # Files
-wm_mask        	= tmp_dir + "/" + ID  + "_dwi_wm_mask.nii.gz"
+tractogram      = sys.argv[1]
+qmap        	= sys.argv[2]
+wm_mask     	= sys.argv[3]
 
+# Dirs
+in_dir   	    = sys.argv[4]
+dict_dir        = in_dir + "/MySD"
+
+#------------------------------------
+# Import usual MySD structure
+#------------------------------------
 trk2dictionary.run(
      filename_tractogram = tractogram,
      filename_mask  = wm_mask,
@@ -54,7 +52,7 @@ mit.load_kernels()
 # Load dictionary and buid the operator
 mit.load_dictionary( dict_dir )
 
-mit.set_threads(30)
+mit.set_threads()
 mit.build_operator()
 
 # fitting

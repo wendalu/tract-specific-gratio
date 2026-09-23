@@ -234,11 +234,60 @@ run_cmd python /app/weight_times_length.py "$COMMIT_weights" "$COMMIT_length" "$
 # Step 2
 # ==============================================================================
 # File definitions
-COMMIT_tck="${TMPDIR}/COMMIT-filtered.tck"
-COMMIT_length="${TMPDIR}/COMMIT-filtered_length.txt"
-COMMIT_weights="${TMPDIR}/COMMIT-filtered_weights.txt"
-COMMIT_volume="${OUTDIR}/COMMIT-filtered_volume.txt"
-weights_commit="${TMPDIR}/COMMIT_init/dict/Results_StickZeppelinBall_AdvancedSolvers/streamline_weights.txt"
+MySD_tck="${TMPDIR}/MySD-filtered.tck"
+MySD_length="${TMPDIR}/MySD-filtered_length.txt"
+MySD_weights="${TMPDIR}/MySD-filtered_weights.txt"
+MySD_volume="${OUTDIR}/MySD-filtered_volume.txt"
+weights_mysd="${TMPDIR}/MySD/Results_VolumeFractions/streamline_weights.txt"
 
-echo "[*] Step 1: Running COMMIT filtering..."
+echo "[*] Step 2: Running bundle specific myelin content estimation..."
+
+counter=0
+max_attempts=3
+
+while [[ ! -f "$weights_mysd" && $counter -lt $max_attempts ]]; do
+    counter=$((counter + 1))
+    echo "[*] Attempt $counter for bundle specific myelin estimation..."
+
+    # Call MySD.py (found in /app on PATH)
+    run_cmd python /app/MySD.py \
+        "$TRACKS" "$MVF" "$WM_MASK" "$TMPDIR"
+
+    if [[ -f "$weights_mysd" ]]; then
+        run_cmd tckedit \
+            -minweight 1e-12 \
+            -tck_weights_in "$weights_mysd" \
+            -tck_weights_out "$MySD_weights" \
+            "$COMMIT_tck" "$MySD_tck" \
+            -force
+
+        # Extract streamline count robustly
+        streamline_count=$(tckinfo "$MySD_tck" -count 2>/dev/null | awk -F': ' '/actual count/ {print $2}' | tr -d ' ')
+        
+        # Fallback if tckinfo format differs
+        if [[ -z "$streamline_count" ]]; then
+            streamline_count=$(tckinfo "$MySD_tck" -count 2>/dev/null | grep -oE '[0-9]+' | tail -n1)
+        fi
+
+        if [[ "$streamline_count" -eq 0 ]]; then
+            echo "[!] Streamline count is 0. Resetting attempt..."
+            rm -rf "${TMPDIR}/MySD"
+            rm -f "$weights_mysd" "$MySD_tck" "$MySD_weights"
+        fi
+    else
+        echo "[!] Output weights file not found on attempt $counter."
+        rm -rf "${TMPDIR}/MySD"
+    fi
+done
+
+if [[ ! -f "$MySD_tck" ]]; then
+    echo "Error: Bundle specific myelin failed after $counter attempts." >&2
+    exit 1
+fi
+
+echo "[*] Extracting streamline lengths..."
+run_cmd tckstats "$MySD_tck" -dump "$MySD_length" -force
+
+echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
+run_cmd python /app/weight_times_length.py "$MySD_weights" "$MySD_length" "$MySD_volume"
 

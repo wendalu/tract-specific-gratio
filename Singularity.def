@@ -1,0 +1,58 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%files
+    # Copies pipeline.sh, all *.py files, and helper files in this folder to /app
+    pipeline.sh /app/pipeline.sh
+    *.py /app/
+
+%environment
+    # Add conda and the app directory to PATH
+    export CONDA_DIR=/opt/conda
+    export PATH="/opt/conda/bin:/app:$PATH"
+    export LC_ALL=C.UTF-8
+    export PYTHONUNBUFFERED=1
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # 1. Install base utilities needed by the installer and system
+    apt-get update && apt-get install -y --no-install-recommends \
+        wget \
+        ca-certificates \
+        bash \
+        libgl1-mesa-glx \
+        && rm -rf /var/lib/apt/lists/*
+
+    # 2. Install Miniforge
+    CONDA_DIR=/opt/conda
+    wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O /tmp/miniforge.sh
+    bash /tmp/miniforge.sh -b -p "$CONDA_DIR"
+    rm /tmp/miniforge.sh
+
+    export PATH="$CONDA_DIR/bin:$PATH"
+
+    # 3. Install Python 3.10 and pre-compiled MRtrix3 binaries
+    conda install -y -n base \
+        -c conda-forge \
+        -c mrtrix3 \
+        python=3.10 \
+        mrtrix3 \
+        pip
+
+    # 4. Install COMMIT (pip automatically resolves all required dependencies)
+    pip install --no-cache-dir \
+        dmri-commit \
+        nibabel \
+        dipy \
+        scipy \
+        numpy
+
+    # 5. Clean conda caches to keep image size small
+    conda clean -afy
+
+    # 6. Ensure the pipeline and python scripts have execute permissions
+    chmod +x /app/pipeline.sh /app/*.py
+
+%runscript
+    exec /app/pipeline.sh "$@"

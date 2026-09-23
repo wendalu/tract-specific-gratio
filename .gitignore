@@ -1,0 +1,20 @@
+# Ignore Singularity container builds
+*.sif
+*.simg
+
+# Ignore Python caches
+__pycache__/
+*.pyc
+
+# Ignore local output/test directories
+results/
+tmp.*/
+
+# Ignore large neuroimaging test files
+*.nii
+*.nii.gz
+*.mif
+*.tck
+*.trk
+*.bval
+*.bvec

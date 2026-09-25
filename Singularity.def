@@ -4,7 +4,7 @@ From: ubuntu:22.04
 %files
     # Copies pipeline.sh, all *.py files, and helper files in this folder to /app
     pipeline.sh /app/pipeline.sh
-    *.py /app/
+    scripts /app/scripts
 
 %environment
     # Add conda and the app directory to PATH

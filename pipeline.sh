@@ -7,34 +7,37 @@ usage() {
 Usage: $(basename "$0") [OPTIONS]
 
 Required Arguments:
-  --dwi, -d      PATH    Preprocessed diffusion image at native resolution (at least 2 shells) (.nii / .nii.gz / .mif)
-  --mask, -m     PATH    Binary brain mask in DWI space at native resolution (.nii / .nii.gz / .mif)
-  --tracks, -t   PATH    Pre-computed tractogram / streamlines (.tck)
-  --mvf          PATH    Myelin volume fraction map (.nii / .nii.gz)
-                         * NOTE: The pipeline resamples/upscales the DWI to match 
-                           the spatial resolution and grid of this MVF image.
-  --wm, -w       PATH    White matter mask in MVF space (.nii / .nii.gz)
+  -d, --dwi     PATH    Preprocessed diffusion image at native resolution (>= 2 shells) (.nii / .nii.gz / .mif)
+  -m, --mask    PATH    Binary brain mask matching native DWI grid (.nii / .nii.gz / .mif)
+  -t, --tracks  PATH    Pre-computed tractogram / streamlines (.tck)
+      --mvf     PATH    Myelin volume fraction map defining target grid (.nii / .nii.gz)
+  -w, --wm      PATH    Binary white matter mask matching target MVF grid (.nii / .nii.gz)
 
 Conditional Arguments:
-  --bvec         PATH    b-vectors text file (Required if DWI is NIfTI)
-  --bval         PATH    b-values text file (Required if DWI is NIfTI)
+      --bvec    PATH    b-vectors text file (Required if DWI is NIfTI)
+      --bval    PATH    b-values text file (Required if DWI is NIfTI)
 
 Optional Arguments:
-  --outdir, -o   PATH    Output directory (default: ./results)
-  --no-cleanup           Keep temporary intermediate files for debugging
-  --help, -h             Show this help message and exit
-
+  -o, --outdir  PATH    Output directory (default: ./results)
+  -p, --parcel  PATH    Parcellation atlas matching target MVF grid (.nii / .nii.gz / .mif)
+      --no-cleanup      Preserves temporary scratch directory for debugging
+  -h, --help            Show this help message and exit
+  
 Notes:
-  * Resolution Matching: The DWI is automatically upscaled/resampled to match 
-    the voxel grid and resolution of the input --mvf image. If you plan to upsample 
-    your MVF (e.g., to match an anatomical T1w space), do so BEFORE passing it here.
+  * Resolution Reference: The --mvf image defines the master output resolution.
+    The native DWI is automatically upscaled internally to match the MVF voxel grid.
+    If you wish to compute metrics at higher resolution (e.g., 1.0 mm T1w),
+    resample/register your MVF and WM mask to that grid BEFORE running this pipeline.
 
 Examples:
   # Using NIfTI inputs (bvec/bval required)
-  ./tract-specific-gratio.sif -d dwi.nii.gz --bvec bvecs --bval bvals -t tracks.tck -m mask.nii.gz --mvf mvf.nii.gz -w wm_mask.nii.gz -o output/
+  ./tract-specific-gratio.sif -d dwi.nii.gz --bvec bvecs --bval bvals -m mask.nii.gz -t tracks.tck --mvf mvf.nii.gz -w wm_mask.nii.gz -o output/
 
-  # Using .mif input (embedded grad table extracted automatically)
-  ./tract-specific-gratio.sif -d dwi.mif -t tracks.tck -m mask.nii.gz --mvf mvf.nii.gz -w wm_mask.nii.gz -o output/
+  # Using .mif input (gradients extracted automatically)
+  ./tract-specific-gratio.sif -d dwi.mif -m mask.nii.gz -t tracks.tck --mvf mvf.nii.gz -w wm_mask.nii.gz -o output/
+  
+  # Optional connectome generation (AV, MV, and g-ratio weighted)
+  ./tract-specific-gratio.sif -d dwi.mif -m mask.nii.gz -t tracks.tck --mvf mvf.nii.gz -w wm_mask.nii.gz -p parcel.nii.gz -o output/
 EOF
     exit 1
 }
@@ -48,6 +51,7 @@ MASK=""
 MVF=""
 WM_MASK=""
 OUTDIR="./results"
+PARCEL=""
 CLEANUP=true
 
 # Parse CLI arguments
@@ -61,6 +65,7 @@ while [[ $# -gt 0 ]]; do
         --mvf)          MVF="$2"; shift 2 ;;
         -w|--wm)        WM_MASK="$2"; shift 2 ;;
         -o|--outdir)    OUTDIR="$2"; shift 2 ;;
+        -p|--parcel)    PARCEL="$2"; shift 2 ;;  
         --no-cleanup)   CLEANUP=false; shift ;;
         -h|--help)      usage ;;
         *) echo "Error: Unknown argument '$1'" >&2; usage ;;
@@ -91,7 +96,7 @@ if [[ ${#missing_args[@]} -gt 0 ]]; then
 fi
 
 # Verify input files that were supplied actually exist
-for file in "$DWI" "$TRACKS" "$MASK" "$MVF" "$WM_MASK" "$BVEC" "$BVAL"; do
+for file in "$DWI" "$TRACKS" "$MASK" "$MVF" "$WM_MASK" "$BVEC" "$BVAL" "$PARCEL"; do
     if [[ -n "$file" && ! -f "$file" ]]; then
         echo "Error: Input file does not exist: $file" >&2
         exit 1
@@ -126,6 +131,7 @@ echo "Mask:       $MASK"
 echo "MVF:        $MVF"
 echo "WM Mask:    $WM_MASK"
 echo "Output:     $OUTDIR"
+echo "Parcel:     ${PARCEL:-[None]}"
 echo "Temp Dir:   $TMPDIR"
 echo "Cleanup:    $CLEANUP"
 echo "=============================="
@@ -250,7 +256,7 @@ while [[ ! -f "$weights_commit" && $counter -lt $max_attempts ]]; do
     echo "[*] Attempt $counter for COMMIT initialization..."
 
     # Call COMMIT_init.py (found in /app on PATH)
-    run_cmd python /app/COMMIT_init.py \
+    run_cmd python /app/scripts/COMMIT_init.py \
         "$DWI_UP_NII" "$BVEC" "$BVAL" "$B0_UP" "$WM_MASK" "$PEAKS" "$TRACKS" "$TMPDIR"
 
     if [[ -f "$weights_commit" ]]; then
@@ -289,13 +295,13 @@ echo "[*] Extracting streamline lengths..."
 run_cmd tckstats "$COMMIT_tck" -dump "$COMMIT_length" -force
 
 echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
-run_cmd python /app/weight_times_length.py "$COMMIT_weights" "$COMMIT_length" "$COMMIT_volume"
+run_cmd python /app/scripts/weight_times_length.py "$COMMIT_weights" "$COMMIT_length" "$COMMIT_volume"
 
 # ==============================================================================
 # Step 2
 # ==============================================================================
 # File definitions
-MySD_tck="${TMPDIR}/MySD-filtered.tck"
+MySD_tck="${OUTDIR}/MySD-filtered.tck"
 MySD_length="${TMPDIR}/MySD-filtered_length.txt"
 MySD_weights="${TMPDIR}/MySD-filtered_weights.txt"
 MySD_volume="${OUTDIR}/MySD-filtered_volume.txt"
@@ -311,7 +317,7 @@ while [[ ! -f "$weights_mysd" && $counter -lt $max_attempts ]]; do
     echo "[*] Attempt $counter for bundle specific myelin estimation..."
 
     # Call MySD.py (found in /app on PATH)
-    run_cmd python /app/MySD.py \
+    run_cmd python /app/scripts/MySD.py \
         "$TRACKS" "$MVF" "$WM_MASK" "$TMPDIR"
 
     if [[ -f "$weights_mysd" ]]; then
@@ -350,13 +356,13 @@ echo "[*] Extracting streamline lengths..."
 run_cmd tckstats "$MySD_tck" -dump "$MySD_length" -force
 
 echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
-run_cmd python /app/weight_times_length.py "$MySD_weights" "$MySD_length" "$MySD_volume"
+run_cmd python /app/scripts/weight_times_length.py "$MySD_weights" "$MySD_length" "$MySD_volume"
 
 # ==============================================================================
 # Step 3
 # ==============================================================================
 # File definitions
-COMMITscl_tck="${TMPDIR}/COMMITscl-filtered.tck"
+COMMITscl_tck="${OUTDIR}/COMMITscl-filtered.tck"
 COMMITscl_length="${TMPDIR}/COMMITscl-filtered_length.txt"
 COMMITscl_weights="${TMPDIR}/COMMITscl-filtered_weights.txt"
 COMMITscl_volume="${OUTDIR}/COMMITscl-filtered_volume.txt"
@@ -381,8 +387,8 @@ while [[ ! -f "$weights_commitscl" && $counter -lt $max_attempts ]]; do
     counter=$((counter + 1))
     echo "[*] Attempt $counter for bundle specific axonal estimation..."
 
-    # Call MySD.py (found in /app on PATH)
-    run_cmd python /app/COMMIT.py \
+    # Call COMMIT.py (found in /app on PATH)
+    run_cmd python /app/scripts/COMMIT.py \
         "$DWI_UP_NII" "$BVEC" "$BVAL" "$B0_UP" "$WM_MASK" "$PEAKS" "$TRACKS" "$TMPDIR"
         
     if [[ -f "$weights_commitscl" ]]; then
@@ -421,7 +427,53 @@ echo "[*] Extracting streamline lengths..."
 run_cmd tckstats "$COMMITscl_tck" -dump "$COMMITscl_length" -force
 
 echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
-run_cmd python /app/weight_times_length.py "$COMMITscl_weights" "$COMMITscl_length" "$COMMITscl_volume"
+run_cmd python /app/scripts/weight_times_length.py "$COMMITscl_weights" "$COMMITscl_length" "$COMMITscl_volume"
 
+# ==============================================================================
+# Optional: Structural Connectome Generation
+# ==============================================================================
+if [[ -n "$PARCEL" ]]; then
+    echo "[*] Parcellation image provided. Building connectomes with tck2connectome..."
 
+    # Output connectome matrices
+    CONNECTOME_MV="${OUTDIR}/connectome_myelin_weighted.txt"
+    CONNECTOME_AV="${OUTDIR}/connectome_axonal_weighted.txt"
+    CONNECTOME_GRATIO="${OUTDIR}/connectome_gratio_weighted.txt"
+
+    echo "[*] Generating myelin volume weighted connectome..."
+    tck2connectome "$MySD_tck" "$PARCEL" "$CONNECTOME_MV" \
+        -tck_weights_in "$MySD_weights" \
+        -assignment_radial_search 2 \
+        -symmetric \
+        -force
+    echo "[*] Generating axonal volume weighted connectome..."
+    tck2connectome "$COMMITscl_tck" "$PARCEL" "$CONNECTOME_AV" \
+        -tck_weights_in "$COMMITscl_weights" \
+        -assignment_radial_search 2 \
+        -symmetric \
+        -force
+    echo "[*] Generating gratio weighted connectome..."
+    python - <<EOF
+import numpy as np
+
+# Load 2D connectome matrices (delimiter handling for CSV or whitespace)
+mv = np.loadtxt('${CONNECTOME_MV}')
+av = np.loadtxt('${CONNECTOME_AV}')
+
+# Total fiber volume = AV + MV
+total_vol = av + mv
+
+# Safe element-wise computation: sqrt(AV / (AV + MV))
+# Mask where total volume is greater than 0 to prevent ZeroDivisionError / NaN warnings
+gratio = np.zeros_like(av, dtype=np.float64)
+valid = (total_vol > 0) & (av >= 0) & (mv >= 0)
+
+np.divide(av, total_vol, out=gratio, where=valid)
+np.sqrt(gratio, out=gratio, where=valid)
+
+np.savetxt('${CONNECTOME_GRATIO}', gratio, fmt='%.6f', delimiter=' ')
+EOF
+
+    echo "[*] Connectome matrices saved to $OUTDIR"
+fi
 

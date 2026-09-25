@@ -59,13 +59,3 @@ mit.build_operator()
 mit.fit( tol_fun=1e-3, max_iter=1000, verbose=True )
 mit.save_results()
 
-
-
-
-
-
-
-
-
-
-

@@ -12,7 +12,6 @@ import amico
 # 2023 Wen Da Lu, McConnell Brain Imaging Centre, MNI, McGill
 #------------------------------------------------------------------------------------------------------------------------------------
 """
-
 #-----------------------------------#
 #------------- SETUP ---------------#
 #-----------------------------------#
@@ -31,7 +30,7 @@ in_dir   	    = sys.argv[8]
 commit_dir      = in_dir + "/COMMIT_init"
 dict_dir        = commit_dir + "/dict"
 
-scheme 		    = tmp_dir + "/AMICO.scheme"
+scheme 		    = in_dir + "/AMICO.scheme"
 
 #------------------------------------
 # Import usual COMMIT structure

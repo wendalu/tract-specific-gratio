@@ -168,7 +168,7 @@ else
 fi
 
 # ==============================================================================
-# Processing
+# Preprocessing
 # ==============================================================================
 echo "[*] Upscaling and extracting mean b0..."
 DWI_UP_MIF="$TMPDIR/DWI_up.mif"
@@ -351,4 +351,77 @@ run_cmd tckstats "$MySD_tck" -dump "$MySD_length" -force
 
 echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
 run_cmd python /app/weight_times_length.py "$MySD_weights" "$MySD_length" "$MySD_volume"
+
+# ==============================================================================
+# Step 3
+# ==============================================================================
+# File definitions
+COMMITscl_tck="${TMPDIR}/COMMITscl-filtered.tck"
+COMMITscl_length="${TMPDIR}/COMMITscl-filtered_length.txt"
+COMMITscl_weights="${TMPDIR}/COMMITscl-filtered_weights.txt"
+COMMITscl_volume="${OUTDIR}/COMMITscl-filtered_volume.txt"
+weights_commitscl="${TMPDIR}/COMMITscl/dict/Results_StickZeppelinBall_AdvancedSolvers/streamline_weights.txt"
+
+echo "[*] Step 3: Running bundle specific axonal content estimation..."
+
+# Obtain MVF scaled DWI
+run_cmd mrgrid "$MVF" regrid -template "$MASK" "$TMPDIR/MVF_low.nii.gz" -force
+run_cmd mrcalc 1 "$TMPDIR/MVF_low.nii.gz" -subtract "$TMPDIR/scaling_1.nii.gz" -force
+run_cmd dwiextract "$DWI_MIF" -bzero "$TMPDIR/b0s.mif" -force
+run_cmd mrmath "$TMPDIR/b0s.mif" mean -axis 3 "$TMPDIR/mean_b0s.mif"
+run_cmd mrcalc "$DWI_MIF" "$TMPDIR/scaling_1.nii.gz" -mult "$TMPDIR/mean_b0s.mif" -div "$TMPDIR/dwi_scaled_norm.mif" -force
+run_cmd mrcalc "$TMPDIR/dwi_scaled_norm.mif" -finite "$TMPDIR/dwi_scaled_norm.mif" 0.0 -if "$TMPDIR/dwi_scaled_norm_nonan.mif"
+run_cmd mrcalc "$TMPDIR/dwi_scaled_norm_nonan.mif" 2 -lt "$TMPDIR/dwi_scaled_norm_nonan.mif" 0.0 -if 0 -gt "$TMPDIR/dwi_scaled_norm_nonan.mif" 0.0 -if "$TMPDIR/dwi_scaled_norm_bound.mif"
+run_cmd mrgrid "$TMPDIR/dwi_scaled_norm_bound.mif" regrid -template "$MVF" "$TMPDIR/dwi_up_scaled_norm_nonan_bound.nii.gz"
+
+counter=0
+max_attempts=3
+
+while [[ ! -f "$weights_commitscl" && $counter -lt $max_attempts ]]; do
+    counter=$((counter + 1))
+    echo "[*] Attempt $counter for bundle specific axonal estimation..."
+
+    # Call MySD.py (found in /app on PATH)
+    run_cmd python /app/COMMIT.py \
+        "$DWI_UP_NII" "$BVEC" "$BVAL" "$B0_UP" "$WM_MASK" "$PEAKS" "$TRACKS" "$TMPDIR"
+        
+    if [[ -f "$weights_commitscl" ]]; then
+        run_cmd tckedit \
+            -minweight 1e-12 \
+            -tck_weights_in "$weights_commitscl" \
+            -tck_weights_out "$COMMITscl_weights" \
+            "$MySD_tck" "$COMMITscl_tck" \
+            -force
+
+        # Extract streamline count robustly
+        streamline_count=$(tckinfo "$COMMITscl_tck" -count 2>/dev/null | awk -F': ' '/actual count/ {print $2}' | tr -d ' ')
+        
+        # Fallback if tckinfo format differs
+        if [[ -z "$streamline_count" ]]; then
+            streamline_count=$(tckinfo "$COMMITscl_tck" -count 2>/dev/null | grep -oE '[0-9]+' | tail -n1)
+        fi
+
+        if [[ "$streamline_count" -eq 0 ]]; then
+            echo "[!] Streamline count is 0. Resetting attempt..."
+            rm -rf "${TMPDIR}/COMMITscl"
+            rm -f "$weights_commitscl" "$COMMITscl_tck" "$COMMITscl_weights"
+        fi
+    else
+        echo "[!] Output weights file not found on attempt $counter."
+        rm -rf "${TMPDIR}/COMMITscl"
+    fi
+done
+
+if [[ ! -f "$COMMITscl_tck" ]]; then
+    echo "Error: Bundle specific axonal content failed after $counter attempts." >&2
+    exit 1
+fi
+
+echo "[*] Extracting streamline lengths..."
+run_cmd tckstats "$COMMITscl_tck" -dump "$COMMITscl_length" -force
+
+echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
+run_cmd python /app/weight_times_length.py "$COMMITscl_weights" "$COMMITscl_length" "$COMMITscl_volume"
+
+
 

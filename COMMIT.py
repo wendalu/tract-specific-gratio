@@ -9,36 +9,27 @@ import amico
 
 """
 # 2021 Mark C Nelson, McConnell Brain Imaging Centre, MNI, McGill
-# 2023 Wen Da Lu, BIC, Montreal Neurological Institute, McGill
+# 2023 Wen Da Lu, McConnell Brain Imaging Centre, MNI, McGill
 #------------------------------------------------------------------------------------------------------------------------------------
 """
-
 #-----------------------------------#
 #------------- SETUP ---------------#
 #-----------------------------------#
-
-ID          = sys.argv[1]
-in_dir   	= sys.argv[2]
-tmp_dir     = sys.argv[3]
-out_dir     = sys.argv[4]
-tractogram  = sys.argv[5]
-para_diff   = float(sys.argv[6])
-perp_diff   = float(sys.argv[7])
-iso_diff    = float(sys.argv[8])
-
-print(".\n *** Initializing COMMIT for: ", ID)
+# Files
+dwi_corr       	= sys.argv[1]
+bvals        	= sys.argv[2]
+bvecs       	= sys.argv[3]
+dwi_b0 	    	= sys.argv[4]
+wm_mask     	= sys.argv[5]
+peaks         	= sys.argv[6]
+tractogram      = sys.argv[7]
 
 # Dirs
-dict_dir        = out_dir + "/dict"
+in_dir   	    = sys.argv[8]
+commit_dir      = in_dir + "/COMMITscl"
+dict_dir        = commit_dir + "/dict"
 
-# Files
-dwi_b0 	    	= in_dir + "/" + ID + "_space-dwi_desc-b0.nii.gz"
-wm_fod         	= tmp_dir + "/" + ID  + "_wm_fod_norm.nii.gz"
-wm_mask        	= tmp_dir + "/" + ID  + "_dwi_wm_mask.nii.gz"
-dwi_corr       	= tmp_dir + "/" + ID  + "_dwi_upscaled.nii.gz"
-bvals        	= tmp_dir + "/" + ID  + "_bvals.txt"
-bvecs       	= tmp_dir + "/" + ID  + "_bvecs.txt"
-scheme 		    = tmp_dir + "/AMICO.scheme"
+scheme 		    = in_dir + "/AMICO.scheme"
 
 #------------------------------------
 # Import usual COMMIT structure
@@ -51,13 +42,12 @@ trk2dictionary.run(
         TCK_ref_image           = dwi_b0,
         path_out                = dict_dir,
         fiber_shift             = 0.5,
-        peaks_use_affine        = True,
-        verbose                 = 2
+        peaks_use_affine        = True
 )
 
 # load data
 amico.util.fsl2scheme( bvals, bvecs, scheme )
-mit = commit.Evaluation( out_dir, '.' )                                              # study_path, subject (relative to study_path)
+mit = commit.Evaluation( commit_dir, '.' )                                              # study_path, subject (relative to study_path)
 mit.set_config('doNormalizeSignal', False)
 mit.load_data(
         dwi_filename    = dwi_corr,
@@ -66,11 +56,9 @@ mit.load_data(
 
 # set forward model
 mit.set_model( 'StickZeppelinBall' )                                                    # model described in (Panagiotaki et al., NeuroImage, 2012)
-
-d_par   = para_diff                                                                     # Parallel diffusivity [mm^2/s]
-d_perps = [ perp_diff ]                                                                 # Perpendicular diffusivity(s) [mm^2/s]
-d_isos  = [ 1.7E-3, iso_diff ]                                                          # Isotropic diffusivity(s) [mm^2/s]
-
+d_par   = 1.7E-3                                                                        # Parallel diffusivity [mm^2/s]
+d_perps = [ 0.51E-3 ]                                                                   # Perpendicular diffusivity(s) [mm^2/s]
+d_isos  = [ 1.7E-3, 3.0E-3 ]                                                            # Isotropic diffusivity(s) [mm^2/s]
 mit.model.set( d_par, d_perps, d_isos )
 mit.generate_kernels( regenerate=True )
 mit.load_kernels()
@@ -79,7 +67,7 @@ mit.load_kernels()
 mit.load_dictionary( dict_dir )
 
 # Build linear operator A
-mit.set_threads( 30 )                                                                       # use max possible; mit.set_threads( n ) to set manually
+mit.set_threads()                                                                       # use max possible; mit.set_threads( n ) to set manually
 mit.build_operator()
 # perform optimization
 mit.fit(tol_fun=1e-3, max_iter=1000)

@@ -45,7 +45,7 @@ From: ubuntu:22.04
     && conda clean -ya
 
     # Install dmri-commit via pip (uses pre-built cp310 manylinux wheel)
-    pip install --no-cache-dir dmri-commit==2.1.0
+    pip install --no-cache-dir dmri-commit
 
     # Ensure pipeline script is executable
     chmod +x /app/pipeline.sh

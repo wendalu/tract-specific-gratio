@@ -28,7 +28,7 @@ tractogram      = sys.argv[7]
 # Dirs
 in_dir   	    = sys.argv[8]
 commit_dir      = in_dir + "/COMMIT_init"
-dict_dir        = commit_dir + "/dict"
+dict_dir        = in_dir + "/COMMIT_init"
 
 scheme 		    = in_dir + "/AMICO.scheme"
 

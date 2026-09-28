@@ -53,6 +53,6 @@ mit.set_threads()
 mit.build_operator()
 
 # fitting
-mit.fit( tol_fun=1e-3, max_iter=1000, verbose=True )
+mit.fit( tol_fun=1e-3, max_iter=1000 )
 mit.save_results()
 

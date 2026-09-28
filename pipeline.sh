@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Print usage if requested or if arguments are missing
 usage() {
     cat << EOF
@@ -136,6 +138,11 @@ echo "Temp Dir:   $TMPDIR"
 echo "Cleanup:    $CLEANUP"
 echo "=============================="
 
+run_cmd() {
+    echo "[CMD] $*"
+    "$@"
+}
+
 # ==============================================================================
 # Format Normalization: Ensure both .mif and .nii.gz versions exist
 # ==============================================================================
@@ -147,8 +154,8 @@ if [[ "$DWI" =~ \.mif(\.gz)?$ ]]; then
     # Extract gradient table if not explicitly provided
     if [[ -z "$BVEC" || -z "$BVAL" ]]; then
         echo "[*] Extracting embedded diffusion gradient table..."
-        BVEC="$TMPDIR/extracted_bvecs"
-        BVAL="$TMPDIR/extracted_bvals"
+        BVEC="$TMPDIR/extracted_bvecs.txt"
+        BVAL="$TMPDIR/extracted_bvals.txt"
 
         if ! mrinfo "$DWI_MIF" -export_grad_fsl "$BVEC" "$BVAL" -force > /dev/null 2>&1; then
             echo "Error: Failed to extract gradient table from $DWI_MIF." >&2
@@ -161,7 +168,7 @@ if [[ "$DWI" =~ \.mif(\.gz)?$ ]]; then
     # Generate NIfTI representation for Python/COMMIT tools
     echo "[*] Converting MIF to NIfTI format..."
     DWI_NII="$TMPDIR/DWI.nii.gz"
-    mrconvert "$DWI_MIF" "$DWI_NII" -nthreads 1 -force
+    mrconvert "$DWI_MIF" "$DWI_NII" -force
 
 else
     echo "[*] Input DWI is in NIfTI format."
@@ -170,7 +177,7 @@ else
     # Generate MRtrix .mif with embedded gradients
     echo "[*] Converting NIfTI to MRtrix .mif..."
     DWI_MIF="$TMPDIR/DWI.mif"
-    mrconvert "$DWI_NII" -fslgrad "$BVEC" "$BVAL" "$DWI_MIF" -nthreads 1 -force
+    mrconvert "$DWI_NII" -fslgrad "$BVEC" "$BVAL" "$DWI_MIF" -force
 fi
 
 # ==============================================================================
@@ -183,10 +190,10 @@ MASK_UP="$TMPDIR/DWI_up_mask.nii.gz"
 B0_UP="$TMPDIR/DWI_mean_up_b0.nii.gz"
 
 run_cmd mrgrid "$DWI_MIF" regrid -template "$MVF" "$DWI_UP_MIF" -force
-run_cmd mrconvert "$DWI_UP_MIF" "$DWI_UP_NII" -nthreads 1 -force
-run_cmd dwiextract "$DWI_UP_MIF" "$TMPDIR/DWI_up_b0.mif" -bzero -nthreads 1 -force
-run_cmd mrmath "$TMPDIR/DWI_up_b0.mif" mean "$B0" -axis 3 -nthreads 1 -force
-run_cmd mrgrid "$MASK" regrid -template "$MVF" -interpolation nearest "$MASK_UP" -force
+run_cmd mrconvert "$DWI_UP_MIF" "$DWI_UP_NII" -force
+run_cmd dwiextract "$DWI_UP_MIF" "$TMPDIR/DWI_up_b0.mif" -bzero -force
+run_cmd mrmath "$TMPDIR/DWI_up_b0.mif" mean "$B0_UP" -axis 3 -force
+run_cmd mrgrid "$MASK" regrid -template "$MVF" -interp nearest "$MASK_UP" -force
 
 echo "[*] Checking diffusion shells..."
 
@@ -218,20 +225,20 @@ WM_RESPONSE="$TMPDIR/response_wm.txt"
 GM_RESPONSE="$TMPDIR/response_gm.txt"
 CSF_RESPONSE="$TMPDIR/response_csf.txt"
 
-run_cmd dwi2response dhollander "$DWI_MIF" \
+run_cmd dwi2response dhollander "$DWI_UP_MIF" \
     "$WM_RESPONSE" "$GM_RESPONSE" "$CSF_RESPONSE" \
-    -mask "$MASK" \
+    -mask "$MASK_UP" \
     -force
 
 # CSD + peaks
 echo "[*] Generating peaks..."
 PEAKS="$TMPDIR/peaks.nii.gz"
 
-run_cmd dwi2fod msmt_csd "$DWI_MIF" \
+run_cmd dwi2fod msmt_csd "$DWI_UP_MIF" \
     "$WM_RESPONSE" "$TMPDIR/wm.mif" \
     "$GM_RESPONSE" "$TMPDIR/gm.mif" \
     "$CSF_RESPONSE" "$TMPDIR/csf.mif" \
-    -mask "$MASK" \
+    -mask "$MASK_UP" \
     -force
 
 run_cmd sh2peaks "$TMPDIR/wm.mif" "$PEAKS" -num 3 -force
@@ -256,7 +263,7 @@ while [[ ! -f "$weights_commit" && $counter -lt $max_attempts ]]; do
     echo "[*] Attempt $counter for COMMIT initialization..."
 
     # Call COMMIT_init.py (found in /app on PATH)
-    run_cmd python /app/scripts/COMMIT_init.py \
+    python $SCRIPT_DIR/scripts/COMMIT_init.py \
         "$DWI_UP_NII" "$BVEC" "$BVAL" "$B0_UP" "$WM_MASK" "$PEAKS" "$TRACKS" "$TMPDIR"
 
     if [[ -f "$weights_commit" ]]; then
@@ -295,7 +302,7 @@ echo "[*] Extracting streamline lengths..."
 run_cmd tckstats "$COMMIT_tck" -dump "$COMMIT_length" -force
 
 echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
-run_cmd python /app/scripts/weight_times_length.py "$COMMIT_weights" "$COMMIT_length" "$COMMIT_volume"
+run_cmd python $SCRIPT_DIR/scripts/weight_times_length.py "$COMMIT_weights" "$COMMIT_length" "$COMMIT_volume"
 
 # ==============================================================================
 # Step 2
@@ -317,8 +324,8 @@ while [[ ! -f "$weights_mysd" && $counter -lt $max_attempts ]]; do
     echo "[*] Attempt $counter for bundle specific myelin estimation..."
 
     # Call MySD.py (found in /app on PATH)
-    run_cmd python /app/scripts/MySD.py \
-        "$TRACKS" "$MVF" "$WM_MASK" "$TMPDIR"
+    python $SCRIPT_DIR/scripts/MySD.py \
+        "$COMMIT_tck" "$MVF" "$WM_MASK" "$TMPDIR"
 
     if [[ -f "$weights_mysd" ]]; then
         run_cmd tckedit \
@@ -356,7 +363,7 @@ echo "[*] Extracting streamline lengths..."
 run_cmd tckstats "$MySD_tck" -dump "$MySD_length" -force
 
 echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
-run_cmd python /app/scripts/weight_times_length.py "$MySD_weights" "$MySD_length" "$MySD_volume"
+run_cmd python $SCRIPT_DIR/scripts/weight_times_length.py "$MySD_weights" "$MySD_length" "$MySD_volume"
 
 # ==============================================================================
 # Step 3
@@ -388,8 +395,8 @@ while [[ ! -f "$weights_commitscl" && $counter -lt $max_attempts ]]; do
     echo "[*] Attempt $counter for bundle specific axonal estimation..."
 
     # Call COMMIT.py (found in /app on PATH)
-    run_cmd python /app/scripts/COMMIT.py \
-        "$DWI_UP_NII" "$BVEC" "$BVAL" "$B0_UP" "$WM_MASK" "$PEAKS" "$TRACKS" "$TMPDIR"
+    python $SCRIPT_DIR/scripts/COMMIT.py \
+        "$TMPDIR/dwi_up_scaled_norm_nonan_bound.nii.gz" "$BVEC" "$BVAL" "$B0_UP" "$WM_MASK" "$PEAKS" "$MySD_tck" "$TMPDIR"
         
     if [[ -f "$weights_commitscl" ]]; then
         run_cmd tckedit \
@@ -427,7 +434,7 @@ echo "[*] Extracting streamline lengths..."
 run_cmd tckstats "$COMMITscl_tck" -dump "$COMMITscl_length" -force
 
 echo "[*] Computing streamline intra-axonal volume (weights × lengths)..."
-run_cmd python /app/scripts/weight_times_length.py "$COMMITscl_weights" "$COMMITscl_length" "$COMMITscl_volume"
+run_cmd python $SCRIPT_DIR/scripts/weight_times_length.py "$COMMITscl_weights" "$COMMITscl_length" "$COMMITscl_volume"
 
 # ==============================================================================
 # Optional: Structural Connectome Generation

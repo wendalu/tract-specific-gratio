@@ -18,8 +18,8 @@ import amico
 commit.setup()
 # Files
 dwi_corr       	= sys.argv[1]
-bvals        	= sys.argv[2]
-bvecs       	= sys.argv[3]
+bvecs        	= sys.argv[2]
+bvals       	= sys.argv[3]
 dwi_b0 	    	= sys.argv[4]
 wm_mask     	= sys.argv[5]
 peaks         	= sys.argv[6]

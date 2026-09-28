@@ -9,6 +9,7 @@ __pycache__/
 # Ignore local output/test directories
 results/
 tmp.*/
+TEST/
 
 # Ignore large neuroimaging test files
 *.nii

@@ -6,7 +6,7 @@ Automated pipeline for computing tract-specific g-ratio using MRtrix3 and COMMIT
 
 Based on the methodology described in:
 > **Mapping the aggregate g-ratio of white matter tracts using multi-modal MRI Open Access**  
-> *Imaging Neuroscience* (2024). DOI: [10.1162/IMAG.a.49](https://doi.org/10.1162/IMAG.a.49)
+> *Imaging Neuroscience* (2025). DOI: [10.1162/IMAG.a.49](https://doi.org/10.1162/IMAG.a.49)
 
 If you use this pipeline in your research, please cite the paper above.
 
@@ -80,7 +80,7 @@ You do not need to rebuild the Singularity image to tweak algorithm parameters, 
 
 ### 1. Clone the repository
 ```bash
-git clone [https://github.com/wendalu/tract-specific-gratio.git](https://github.com/wendalu/tract-specific-gratio.git)
+git clone https://github.com/wendalu/tract-specific-gratio.git
 cd tract-specific-gratio
 ```
 

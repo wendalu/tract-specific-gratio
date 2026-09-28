@@ -47,6 +47,7 @@ trk2dictionary.run(
 # load data
 amico.util.fsl2scheme( bvals, bvecs, scheme )
 mit = commit.Evaluation( dictionary_path=commit_dir )                                   # study_path, subject (relative to study_path)
+mit.set_verbose(4)
 mit.load_data(
         dwi_filename    = dwi_corr,
         scheme_filename = scheme
@@ -62,7 +63,7 @@ mit.generate_kernels( regenerate=True )
 mit.load_kernels()
 
 # Load dictionary (sparse data structure)
-mit.load_dictionary( commit_dir )
+mit.load_dictionary( )
 
 # Build linear operator A
 mit.set_threads()                                                                       # use max possible; mit.set_threads( n ) to set manually

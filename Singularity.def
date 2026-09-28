@@ -14,45 +14,40 @@ From: ubuntu:22.04
     export PYTHONUNBUFFERED=1
 
 %post
+    # Prevent interactive tzdata/keyboard prompts
     export DEBIAN_FRONTEND=noninteractive
 
-    # 1. Install base utilities needed by the installer and system
+    # Update base system and install wget/git/ca-certificates
     apt-get update && apt-get install -y --no-install-recommends \
         wget \
         ca-certificates \
-        bash \
-        libgl1-mesa-glx \
-        && rm -rf /var/lib/apt/lists/*
+        git \
+        bzip2 \
+    && rm -rf /var/lib/apt/lists/*
 
-    # 2. Install Miniforge
-    CONDA_DIR=/opt/conda
-    wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O /tmp/miniforge.sh
-    bash /tmp/miniforge.sh -b -p "$CONDA_DIR"
+    # Download and install Miniforge
+    wget -qO /tmp/miniforge.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
+    bash /tmp/miniforge.sh -b -p /opt/conda
     rm /tmp/miniforge.sh
 
-    export PATH="$CONDA_DIR/bin:$PATH"
+    # Set up PATH for conda
+    export PATH="/opt/conda/bin:$PATH"
 
-    # 3. Install Python 3.10 and pre-compiled MRtrix3 binaries
-    conda install -y -n base \
-        -c conda-forge \
-        -c mrtrix3 \
+    # Install Python 3.10, MRtrix3, and scientific Python stack from pre-compiled binaries
+    conda install -y -c conda-forge -c mrtrix3 \
         python=3.10 \
         mrtrix3 \
-        pip
-
-    # 4. Install COMMIT (pip automatically resolves all required dependencies)
-    pip install --no-cache-dir \
-        dmri-commit \
+        numpy \
+        scipy \
         nibabel \
         dipy \
-        scipy \
-        numpy
+    && conda clean -ya
 
-    # 5. Clean conda caches to keep image size small
-    conda clean -afy
+    # Install dmri-commit via pip (uses pre-built cp310 manylinux wheel)
+    pip install --no-cache-dir dmri-commit
 
-    # 6. Ensure the pipeline and python scripts have execute permissions
-    chmod +x /app/pipeline.sh /app/*.py
+    # Ensure pipeline script is executable
+    chmod +x /app/pipeline.sh
 
 %runscript
     exec /app/pipeline.sh "$@"

@@ -374,7 +374,7 @@ COMMITscl_tck="${OUTDIR}/COMMITscl-filtered.tck"
 COMMITscl_length="${TMPDIR}/COMMITscl-filtered_length.txt"
 COMMITscl_weights="${TMPDIR}/COMMITscl-filtered_weights.txt"
 COMMITscl_volume="${OUTDIR}/COMMITscl-filtered_volume.txt"
-weights_commitscl="${TMPDIR}/COMMITscl/dict/Results_StickZeppelinBall_AdvancedSolvers/streamline_weights.txt"
+weights_commitscl="${TMPDIR}/COMMITscl/Results_StickZeppelinBall_AdvancedSolvers/streamline_weights.txt"
 
 echo "[*] Step 3: Running bundle specific axonal content estimation..."
 

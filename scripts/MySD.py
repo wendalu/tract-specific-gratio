@@ -38,7 +38,7 @@ trk2dictionary.run(
 )
 
 # Setting parameters
-mit = commit.Evaluation( dictionary_path=dict_dir )
+mit = commit.Evaluation()
 mit.set_config('doNormalizeSignal', False)
 
 mit.load_data( qmap, None )
@@ -50,7 +50,7 @@ mit.generate_kernels( ndirs=1, regenerate=True )
 mit.load_kernels()
 
 # Load dictionary and buid the operator
-mit.load_dictionary()
+mit.load_dictionary( dict_dir )
 
 mit.set_threads()
 mit.build_operator()

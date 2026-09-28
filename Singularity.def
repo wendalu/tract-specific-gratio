@@ -48,6 +48,8 @@ From: ubuntu:22.04
     # Install dmri-commit via pip (uses pre-built cp310 manylinux wheel)
     pip install --no-cache-dir dmri-commit==2.1.0
 
+    python -c "import commit; commit.core.setup()"
+
     # Ensure pipeline script is executable
     chmod +x /app/pipeline.sh
 

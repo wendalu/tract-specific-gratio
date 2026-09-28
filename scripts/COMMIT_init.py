@@ -35,7 +35,6 @@ scheme 		    = in_dir + "/AMICO.scheme"
 #------------------------------------
 # Import usual COMMIT structure
 #------------------------------------
-commit.core.setup()                                                                     # precomputes the rotation matrices used internally by COMMIT
 trk2dictionary.run(
         filename_tractogram     = tractogram,
         filename_peaks          = peaks,
@@ -48,7 +47,7 @@ trk2dictionary.run(
 
 # load data
 amico.util.fsl2scheme( bvals, bvecs, scheme )
-mit = commit.Evaluation( commit_dir, '.' )                                              # study_path, subject (relative to study_path)
+mit = commit.Evaluation()                                                               # study_path, subject (relative to study_path)
 mit.load_data(
         dwi_filename    = dwi_corr,
         scheme_filename = scheme

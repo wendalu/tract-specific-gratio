@@ -63,7 +63,7 @@ mit.generate_kernels( regenerate=True )
 mit.load_kernels()
 
 # Load dictionary (sparse data structure)
-mit.load_dictionary( )
+mit.load_dictionary()
 
 # Build linear operator A
 mit.set_threads()                                                                       # use max possible; mit.set_threads( n ) to set manually

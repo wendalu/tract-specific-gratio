@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYTHONNOUSERSITE=1
 
 # Print usage if requested or if arguments are missing
 usage() {

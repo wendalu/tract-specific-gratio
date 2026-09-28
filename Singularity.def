@@ -41,6 +41,7 @@ From: ubuntu:22.04
         scipy \
         nibabel \
         dipy \
+        setuptools \
     && conda clean -ya
 
     # Install dmri-commit via pip (uses pre-built cp310 manylinux wheel)

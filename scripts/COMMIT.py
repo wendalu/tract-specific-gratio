@@ -47,7 +47,7 @@ trk2dictionary.run(
 
 # load data
 amico.util.fsl2scheme( bvals, bvecs, scheme )
-mit = commit.Evaluation()                                              
+mit = commit.Evaluation( dict_dir )                                              
 mit.set_config('doNormalizeSignal', False)
 mit.load_data(
         dwi_filename    = dwi_corr,

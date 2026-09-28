@@ -47,7 +47,7 @@ trk2dictionary.run(
 
 # load data
 amico.util.fsl2scheme( bvals, bvecs, scheme )
-mit = commit.Evaluation()                                                               # study_path, subject (relative to study_path)
+mit = commit.Evaluation( dict_dir )                                                               # study_path, subject (relative to study_path)
 mit.load_data(
         dwi_filename    = dwi_corr,
         scheme_filename = scheme

@@ -27,7 +27,6 @@ tractogram      = sys.argv[7]
 # Dirs
 in_dir   	    = sys.argv[8]
 commit_dir      = in_dir + "/COMMITscl"
-dict_dir        = commit_dir + "/dict"
 
 scheme 		    = in_dir + "/AMICO.scheme"
 
@@ -40,14 +39,15 @@ trk2dictionary.run(
         filename_peaks          = peaks,
         filename_mask           = wm_mask,
         TCK_ref_image           = dwi_b0,
-        path_out                = dict_dir,
+        path_out                = commit_dir,
         fiber_shift             = 0.5,
         peaks_use_affine        = True
 )
 
 # load data
 amico.util.fsl2scheme( bvals, bvecs, scheme )
-mit = commit.Evaluation( commit_dir, '.' )                                              # study_path, subject (relative to study_path)
+mit = commit.Evaluation( dictionary_path=commit_dir )
+mit.set_verbose(4)                                              
 mit.set_config('doNormalizeSignal', False)
 mit.load_data(
         dwi_filename    = dwi_corr,
@@ -64,7 +64,7 @@ mit.generate_kernels( regenerate=True )
 mit.load_kernels()
 
 # Load dictionary (sparse data structure)
-mit.load_dictionary( dict_dir )
+mit.load_dictionary()
 
 # Build linear operator A
 mit.set_threads()                                                                       # use max possible; mit.set_threads( n ) to set manually

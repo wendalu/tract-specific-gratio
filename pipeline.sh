@@ -252,7 +252,7 @@ COMMIT_tck="${TMPDIR}/COMMIT-filtered.tck"
 COMMIT_length="${TMPDIR}/COMMIT-filtered_length.txt"
 COMMIT_weights="${TMPDIR}/COMMIT-filtered_weights.txt"
 COMMIT_volume="${OUTDIR}/COMMIT-filtered_volume.txt"
-weights_commit="${TMPDIR}/COMMIT_init/dict/Results_StickZeppelinBall_AdvancedSolvers/streamline_weights.txt"
+weights_commit="${TMPDIR}/COMMIT_init/Results_StickZeppelinBall_AdvancedSolvers/streamline_weights.txt"
 
 echo "[*] Step 1: Running COMMIT filtering..."
 

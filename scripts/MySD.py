@@ -40,19 +40,15 @@ trk2dictionary.run(
 # Setting parameters
 mit = commit.Evaluation( dictionary_path=dict_dir )
 mit.set_verbose(4)
-mit.set_config('doNormalizeSignal', False)
-
-mit.load_data( qmap, None )
+mit.load_data( qmap )
 
 # Set model and generate the kernel
-mit.set_model( 'VolumeFractions' )
-mit.model.set()
-mit.generate_kernels( ndirs=1, regenerate=True )
+mit.set_model( 'ScalarMap' )
+mit.generate_kernels()
 mit.load_kernels()
 
 # Load dictionary and buid the operator
 mit.load_dictionary()
-
 mit.set_threads()
 mit.build_operator()
 

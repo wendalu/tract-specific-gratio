@@ -313,7 +313,7 @@ MySD_tck="${OUTDIR}/MySD-filtered.tck"
 MySD_length="${TMPDIR}/MySD-filtered_length.txt"
 MySD_weights="${TMPDIR}/MySD-filtered_weights.txt"
 MySD_volume="${OUTDIR}/MySD-filtered_volume.txt"
-weights_mysd="${TMPDIR}/MySD/Results_VolumeFractions/streamline_weights.txt"
+weights_mysd="${TMPDIR}/MySD/Results_ScalarMap/streamline_weights.txt"
 
 echo "[*] Step 2: Running bundle specific myelin content estimation..."
 

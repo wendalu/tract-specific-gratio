@@ -10,6 +10,9 @@ Based on the methodology described in:
 
 If you use this pipeline in your research, please cite the paper above.
 
+> [!NOTE]
+> The original paper used `dmri-commit 2.1.0`. This container uses `2.4.2` because version 2.1.0 does not work in Singularity due to read-only filesystem permission issues. The underlying modeling remain equivalent.
+
 ---
 
 ## Important Note on Resolution and Voxel Grids
